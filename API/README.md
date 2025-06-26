@@ -202,6 +202,38 @@ Each tournament object includes metadata such as:
 This improves user engagement by showcasing tournament history and teasing upcoming competitions.
 
 ---
+To determine a player’s **total score** and their **ranking** in the leaderboard:
+
+> ⚠️ The API does not return `total_score` directly — studios must calculate this on the client side.
+
+### Formula
+```
+Total Score = score + bonus_score
+```
+
+The `participants` array is not sorted but we includue the rank — you need to include and calculate `total_score` in descending order.
+
+### Example
+```csharp
+public class Participant {
+    public string handle;
+    public int score;
+    public int bonus_score;
+    public int TotalScore => score + bonus_score;
+}
+
+List<Participant> sorted = participants.OrderByDescending(p => p.TotalScore).ToList();
+
+// Example display
+foreach (var p in sorted) {
+    Debug.Log($"{p.handle} - Total Score: {p.TotalScore}");
+}
+Total Score = score + bonus_score
+```
+
+Ensure you reflect this logic in your UI if you’re rendering or re-sorting leaderboard data on your end.
+
+---
 
 ## Notes
 - If `participants` is empty, no players are registered yet.
