@@ -23,7 +23,7 @@ Authorization: Bearer n3m_sk_<your_token>
 
 Example:
 ```
-Authorization: Bearer n3m_sk_b20afe97c84ba168df9a761a212ew57fc09f07ccea2wd20
+Authorization: Bearer n3m_sk_code
 ```
 
 ---
