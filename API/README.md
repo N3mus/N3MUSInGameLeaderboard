@@ -243,4 +243,85 @@ Ensure you reflect this logic in your UI if you’re rendering or re-sorting lea
 
 ---
 
+Studios integrating N3MUS tournaments can enhance UX by allowing players to register for tournaments directly from the game client if they are not already registered.
+
+This guide explains how to create a **JOIN TOURNAMENT** button in both **Unity** and **Unreal Engine** using the tournament `slug` field.
+
+---
+
+## 🧠 Concept
+
+If a user is **not found** in the participant list of an ongoing tournament, display a `JOIN TOURNAMENT` button that links to:
+```
+https://hub.n3mus.com/tournaments/{slug}
+```
+This page allows players to complete their tournament registration via wallet.
+
+---
+
+## 🎮 Unity Integration
+
+### Example Code
+```csharp
+public void ShowJoinTournamentButton(string tournamentSlug) {
+    string joinUrl = $"https://hub.n3mus.com/tournaments/{tournamentSlug}";
+
+    Button joinButton = Instantiate(joinButtonPrefab, parentTransform);
+    Text btnText = joinButton.GetComponentInChildren<Text>();
+    if (btnText != null) btnText.text = "JOIN TOURNAMENT";
+
+    joinButton.onClick.AddListener(() => {
+#if UNITY_ANDROID || UNITY_IOS
+        Application.OpenURL(joinUrl); // or use UniWebView if embedded
+#else
+        Application.OpenURL(joinUrl);
+#endif
+    });
+}
+```
+
+### When to Show It
+```csharp
+if (userNotFoundInParticipants) {
+    ShowJoinTournamentButton(tournament.slug);
+}
+```
+
+---
+
+## 🕹️ Unreal Engine Integration
+
+### Blueprint
+1. Create a `UMG Button Widget`
+2. Set text to `JOIN TOURNAMENT`
+3. On `OnClicked` event:
+   - Use `Open URL` node with input: 
+     ```
+     https://hub.n3mus.com/tournaments/{slug}
+     ```
+
+### C++ Example
+```cpp
+FString TournamentSlug = "kugle-test-ongoing";
+FString JoinURL = FString::Printf(TEXT("https://hub.n3mus.com/tournaments/%s"), *TournamentSlug);
+
+FPlatformProcess::LaunchURL(*JoinURL, nullptr, nullptr);
+```
+
+Call this when the user is not in the leaderboard:
+```cpp
+if (!bUserInLeaderboard) {
+    // Show JOIN TOURNAMENT button
+}
+```
+
+---
+
+## 💡 Summary
+- Always use the `slug` field to build the join URL
+- Render this button **only** when user is not in `participants[]`
+- This link works across desktop and mobile
+
+---
+
 For support or questions, contact us at **https://t.me/n3muschat**
