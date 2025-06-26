@@ -198,6 +198,7 @@ Each tournament object includes metadata such as:
 - `slug` for direct registration or leaderboard links (e.g. `https://hub.n3mus.com/tournaments/{slug}`)
 - `prize_pool` for the Prizepool size
 - `max_winners` for the number of winners
+- `tournament_type` Can be SUM_SCORE for 'accumulated points' or HIGH_SCORE for HIGH Score Only
 
 This improves user engagement by showcasing tournament history and teasing upcoming competitions.
 
