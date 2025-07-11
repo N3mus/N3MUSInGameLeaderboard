@@ -28,7 +28,40 @@ Authorization: Bearer n3m_sk_code
 
 ---
 
-## Endpoint: `GET /studio-api/tournaments/`
+## Available Endpoints
+
+The N3MUS Studio API provides access to both tournament and game data through the following endpoints:
+
+### Tournaments
+
+#### `GET /studio-api/tournaments/`
+**List all tournaments** - Returns a paginated list of tournaments for your studio. Supports filtering by game ID and tournament status.
+
+**Query Parameters:**
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Number of results per page (default: 10, max: 100)
+- `game_id` (optional): Filter tournaments by specific game ID
+- `status` (optional): Filter by tournament status (`UPCOMING`, `ONGOING`, `COMPLETED`)
+
+#### `GET /studio-api/tournaments/{tournamentId}`
+**Get tournament details** - Fetches complete details for a specific tournament by its ID, including participant data.
+
+### Games
+
+#### `GET /studio-api/games/`
+**List all games** - Returns a paginated list of games owned by your studio.
+
+**Query Parameters:**
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Number of results per page (default: 10, max: 100)
+- `status` (optional): Filter games by status
+
+#### `GET /studio-api/games/{gameId}`
+**Get game details** - Fetches complete details for a specific game by its ID.
+
+---
+
+## Example: `GET /studio-api/tournaments/`
 
 Fetches all tournaments for the authenticated studio.
 
@@ -161,7 +194,7 @@ Headers:
 
 3. **Loop through the `participants[]` array** of the ongoing tournament(s).
 
-4. **Match the `wallet_address`** against the current player’s wallet (case-insensitive match).
+4. **Match the `wallet_address`** against the current player's wallet (case-insensitive match).
 
 ### Sample Code (Pseudocode)
 ```csharp
@@ -203,7 +236,7 @@ Each tournament object includes metadata such as:
 This improves user engagement by showcasing tournament history and teasing upcoming competitions.
 
 ---
-To determine a player’s **total score** and their **ranking** in the leaderboard:
+To determine a player's **total score** and their **ranking** in the leaderboard:
 
 > ⚠️ The API does not return `total_score` directly — studios must calculate this on the client side.
 
@@ -232,7 +265,7 @@ foreach (var p in sorted) {
 Total Score = score + bonus_score
 ```
 
-Ensure you reflect this logic in your UI if you’re rendering or re-sorting leaderboard data on your end.
+Ensure you reflect this logic in your UI if you're rendering or re-sorting leaderboard data on your end.
 
 ---
 
