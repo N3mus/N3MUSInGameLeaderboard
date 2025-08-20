@@ -3,8 +3,12 @@
 The N3MUS Studio API allows game studios to fetch tournament data and determine if a player is registered in an ongoing tournament leaderboard. It also enables studios to show past and upcoming tournaments in-game for user engagement.
 
 ---
+## Base Development URL
+```
+https://dev-backend.n3mus.com/studio-api/tournaments/
+```
 
-## Base URL
+## Base Production URL
 ```
 https://hub-bck.n3mus.com/studio-api/tournaments/
 ```
