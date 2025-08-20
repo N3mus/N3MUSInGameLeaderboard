@@ -210,6 +210,18 @@ if (ongoing != null) {
 }
 ```
 
+We suggest to implement an in game button showing TOURNAMENT or LEADERBOARD where users can view the leaderboard, which you fetch through the API.
+If a user isn't registered for the tournament yet (you can check through an API call), alter the button to SIGN UP FOR THIS TOURNAMENT.
+
+Below is an example user who isn't registered for the tournament.
+
+<img width="482" height="561" alt="image" src="https://github.com/user-attachments/assets/b8fbfef0-a9f4-404a-8f26-abb8c7c0a6ae" />
+
+For this game the PLAY button comes available, once a user registered for the tournament.
+
+<img width="457" height="531" alt="image" src="https://github.com/user-attachments/assets/ca9634b7-dc45-44be-839c-051c0767d16a" />
+
+
 ---
 
 ## Displaying Completed & Upcoming Tournaments
@@ -224,6 +236,10 @@ Studios are encouraged to create an **in-game carousel UI** that:
 - Displays the current tournament
 - Allows users to swipe left to view past (COMPLETED) tournaments
 - Allows users to swipe right to preview upcoming (UPCOMING) tournaments
+
+Below is an example UI on how you can display the leaderboard with a carousel in game:
+
+<img width="1280" height="752" alt="image" src="https://github.com/user-attachments/assets/8d63d824-633c-4f85-b0a7-276f54fb9261" />
 
 Each tournament object includes metadata such as:
 - `start_date`, `end_date`
