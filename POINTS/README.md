@@ -46,6 +46,16 @@ POST https://cosmicbomberk.n3mus.com/postMatchResults
   "values": ["1"]
 }
 ```
+or
+
+```json
+{
+  "address": "0x1234567890abcdef1234567890abcdef12345678",
+  "amount": 42,
+  "keys": [],
+  "values": []
+}
+```
 
 ### Field details
 | Field    | Type     | Required | Description                                |
@@ -157,7 +167,7 @@ using UnityEngine.Networking;
 public class N3musLeaderboard : MonoBehaviour
 {
     [SerializeField] private string baseUrl = "https://cosmicbomberk.n3mus.com";
-    [SerializeField] private string apiToken = "YOUR_API_TOKEN";
+    [SerializeField] private string apiToken = "Bearer n3m_sk_key";
 
     public IEnumerator PostMatchResults(string address, int amount, string matchNumber)
     {
