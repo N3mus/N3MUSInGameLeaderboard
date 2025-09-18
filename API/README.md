@@ -1,380 +1,327 @@
-# N3MUS Tournament API Documentation for Studios
+# N3mus Studio API (Concise Guide)
 
-The N3MUS Studio API allows game studios to fetch tournament data and determine if a player is registered in an ongoing tournament leaderboard. It also enables studios to show past and upcoming tournaments in-game for user engagement.
+Use this API to read games, tournaments, and perform user / participant lookups with scoped permissions.
 
----
-## Base Development URL
-```
-https://dev-backend.n3mus.com/studio-api/tournaments/
-```
+Base Paths:
 
-## Base Production URL
-```
-https://hub-bck.n3mus.com/studio-api/tournaments/
-```
+| Environment | Base URL                        |
+| ----------- | ------------------------------- |
+| Production  | `https://hub-bck.n3mus.com`     |
+| Staging     | `https://dev-backend.n3mus.com` |
+
+All endpoints are under `/studio-api`.
 
 ---
 
-## Authentication
-To access the API, studios must provide an **Authorization** header:
+## Auth
 
-### Header
-```
-Authorization: Bearer n3m_sk_<your_token>
+Header:
+
+```http
+Authorization: Bearer <API_KEY>
 ```
 
-> ⚠️ Each studio will receive a unique `n3m_sk_` token upon onboarding.
-
-Example:
-```
-Authorization: Bearer n3m_sk_code
-```
+Keys are issued & rotated by N3mus. Request separate keys per environment.
 
 ---
 
-## Available Endpoints
+## Permissions (Additive)
 
-The N3MUS Studio API provides access to both tournament and game data through the following endpoints:
+| Domain             | Basic                           | Elevated                            | Effect                         |
+| ------------------ | ------------------------------- | ----------------------------------- | ------------------------------ |
+| Games              | `game:read`                     | `game:read:all`                     | Own vs all studios             |
+| Tournaments        | `tournament:read`               | `tournament:read:all`               | Own vs all studios             |
+| User Lookup        | `user:lookup:basic`             | `user:lookup:enriched`              | Existence vs enriched profile  |
+| Participant Lookup | `tournament:participant:lookup` | `tournament:participant:lookup:all` | Existence vs enriched + global |
 
-### Tournaments
+Notes:
 
-#### `GET /studio-api/tournaments/`
-**List all tournaments** - Returns a paginated list of tournaments for your studio. Supports filtering by game ID and tournament status.
+- Basic user lookup = email only; wallet requires enriched.
+- Enriched participant lookup returned if key has `tournament:participant:lookup:all` OR `user:lookup:enriched`.
 
-**Query Parameters:**
-- `page` (optional): Page number for pagination (default: 1)
-- `limit` (optional): Number of results per page (default: 10, max: 100)
-- `game_id` (optional): Filter tournaments by specific game ID
-- `status` (optional): Filter by tournament status (`UPCOMING`, `ONGOING`, `COMPLETED`)
+### Data Shaping Summary
 
-#### `GET /studio-api/tournaments/{tournamentId}`
-**Get tournament details** - Fetches complete details for a specific tournament by its ID, including participant data.
+| Permission                          | Additional Fields                           |
+| ----------------------------------- | ------------------------------------------- |
+| `user:lookup:basic`                 | none (exists only)                          |
+| `user:lookup:enriched`              | `user_id`, `handle`, `last_active`, wallets |
+| `tournament:participant:lookup`     | none (found only)                           |
+| `tournament:participant:lookup:all` | `user_id`, `handle`, `wallet_address`       |
+
+---
+
+## Pagination
+
+Query: `page` (default 1), `limit` (default 10). Response: `data`, `page`, `limit`, `total`, `has_next`.
+
+---
+
+## Endpoints Summary
+
+| Endpoint                                          | Method | Purpose                       | Required Permission(s)                        |
+| ------------------------------------------------- | ------ | ----------------------------- | --------------------------------------------- |
+| `/games`                                          | GET    | List games                    | `game:read` or `game:read:all`                |
+| `/games/{gameId}`                                 | GET    | Get game                      | `game:read` or `game:read:all`                |
+| `/tournaments`                                    | GET    | List tournaments              | `tournament:read` or `tournament:read:all`    |
+| `/tournaments/{tournamentId}`                     | GET    | Get tournament                | `tournament:read` or `tournament:read:all`    |
+| `/users/lookup`                                   | GET    | User existence / profile      | `user:lookup:basic` or `user:lookup:enriched` |
+| `/tournaments/{tournamentId}/participants/lookup` | GET    | Participant existence/profile | participant or user lookup permissions        |
+
+---
+
+## Endpoint Details
 
 ### Games
 
-#### `GET /studio-api/games/`
-**List all games** - Returns a paginated list of games owned by your studio.
+#### List Games
 
-**Query Parameters:**
-- `page` (optional): Page number for pagination (default: 1)
-- `limit` (optional): Number of results per page (default: 10, max: 100)
-- `status` (optional): Filter games by status
+```http
+GET /studio-api/games?page=1&limit=10
+```
 
-#### `GET /studio-api/games/{gameId}`
-**Get game details** - Fetches complete details for a specific game by its ID.
+**Permissions:** `game:read` OR `game:read:all`
 
----
+- With `game:read`: Returns only games owned by the requesting studio.
+- With `game:read:all`: Returns games across all studios.
 
-## Example: `GET /studio-api/tournaments/`
+Sample Response:
+Example (curl):
 
-Fetches all tournaments for the authenticated studio.
+```bash
+curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
+  "https://api.n3mus.com/studio-api/games?page=1&limit=10"
+```
 
-### Sample Response
 ```json
 {
-	"data": [
-		{
-			"tournament_id": "fgoji7ktymnq4ovsq9fv1kb7",
-			"status": "UPCOMING",
-			"slug": "kugle-upcoming",
-			"name": "kugle-upcoming",
-			"banner": "http://res.cloudinary.com/dtnbuzwfd/image/upload/v1750837587/tournaments/1750837586175-banner.png",
-			"prize_pool": "500",
-			"tournament_type": "SUM_SCORE",
-			"max_winners": 100,
-			"start_date": "2025-07-09T07:41:00.000Z",
-			"end_date": "2025-07-31T07:41:00.000Z",
-			"last_updated": "2025-06-25T07:46:41.399Z",
-			"participants": [
-				{
-					"rank": 1,
-					"user_id": "6655ecc78e64b86bae1d7f2b",
-					"handle": "Nealawdawd",
-					"wallet_address": "0xf0e144a19d3e62E64d3D6159d0B4e6862c18e270",
-					"score": 25,
-					"bonus_score": 0,
-					"email": "neal@n3mus.com"
-				},
-				{
-					"rank": 2,
-					"user_id": "656dcbebced29ecdc6beb1be",
-					"handle": "lode_marketer#9169",
-					"wallet_address": "0xf10bab2117700e7911e42c83b952b53b080d0383",
-					"score": 10,
-					"bonus_score": 2,
-					"email": "nealtjeee@gmail.com"
-				}
-			]
-		},
-		{
-			"tournament_id": "zz8lbjldh2s46hju083pxc5o",
-			"status": "ONGOING",
-			"slug": "kugle-test-ongoing",
-			"name": "Kugle-test-ongoing",
-			"banner": "http://res.cloudinary.com/dtnbuzwfd/image/upload/v1750837551/tournaments/1750837551226-banner.png",
-			"prize_pool": "500",
-			"tournament_type": "SUM_SCORE",
-			"max_winners": 100,
-			"start_date": "2025-06-25T07:47:00.000Z",
-			"end_date": "2025-06-30T07:41:00.000Z",
-			"last_updated": "2025-06-26T09:13:20.047Z",
-			"participants": [
-				{
-					"rank": 1,
-					"user_id": "6655ecc78e64b86bae1d7f2b",
-					"handle": "Nealawdawd",
-					"wallet_address": "0xf0e144a19d3e62E64d3D6159d0B4e6862c18e270",
-					"score": 25,
-					"bonus_score": 0,
-					"email": "neal@n3mus.com"
-				},
-				{
-					"rank": 2,
-					"user_id": "656dcbebced29ecdc6beb1be",
-					"handle": "lode_marketer#9169",
-					"wallet_address": "0xf10bab2117700e7911e42c83b952b53b080d0383",
-					"score": 10,
-					"bonus_score": 2,
-					"email": "nealtjeee@gmail.com"
-				}
-			]
-		},
-		{
-			"tournament_id": "jjusadkp43yv54doefe3qgfl",
-			"status": "COMPLETED",
-			"slug": "kugle-test",
-			"name": "Kugle-test",
-			"banner": "http://res.cloudinary.com/dtnbuzwfd/image/upload/v1750837318/tournaments/1750837317348-banner.png",
-			"prize_pool": "500",
-			"tournament_type": "SUM_SCORE",
-			"max_winners": 100,
-			"start_date": "2025-06-25T07:43:00.000Z",
-			"end_date": "2025-06-25T07:46:00.000Z",
-			"last_updated": "2025-06-25T07:46:20.542Z",
-			"participants": [
-				{
-					"rank": 1,
-					"user_id": "6655ecc78e64b86bae1d7f2b",
-					"handle": "Nealawdawd",
-					"wallet_address": "0xf0e144a19d3e62E64d3D6159d0B4e6862c18e270",
-					"score": 25,
-					"bonus_score": 0,
-					"email": "neal@n3mus.com"
-				},
-				{
-					"rank": 2,
-					"user_id": "656dcbebced29ecdc6beb1be",
-					"handle": "lode_marketer#9169",
-					"wallet_address": "0xf10bab2117700e7911e42c83b952b53b080d0383",
-					"score": 10,
-					"bonus_score": 2,
-					"email": "nealtjeee@gmail.com"
-				}
-			]
-		}
-	],
-	"total": 3,
-	"page": 1,
-	"limit": 10,
-	"totalPages": 1
-}
-```
-
----
-
-## How to Check if a Player Is Registered in an Ongoing Tournament
-
-You can determine if a player is participating in the current tournament with the following steps:
-
-### Step-by-Step:
-1. **Fetch all tournaments:**
-```http
-GET https://dev-backend.n3mus.com/studio-api/tournaments/
-Headers:
-  Authorization: Bearer n3m_sk_<your_key>
-```
-
-2. **Filter by `status == "ONGOING"`** from the response.
-
-3. **Loop through the `participants[]` array** of the ongoing tournament(s).
-
-4. **Match the `wallet_address`** against the current player's wallet (case-insensitive match).
-
-### Sample Code (Pseudocode)
-```csharp
-var ongoing = tournaments.Find(t => t.status == "ONGOING");
-if (ongoing != null) {
-    var player = ongoing.participants.Find(p => 
-        p.wallet_address.ToLower() == currentWallet.ToLower());
-    if (player != null) {
-        Debug.Log("User is registered: " + player.handle);
-    } else {
-        Debug.Log("User is NOT registered.");
+  "data": [
+    {
+      "id": "game_123",
+      "title": "Example Game",
+      "description": "...",
+      "status": "active",
+      "socials": { "site": null, "twitter": null, "discord": null },
+      "images": { "thumbnail": null, "banner": null },
+      "created_at": "2025-09-01T12:00:00.000Z"
     }
+  ],
+  "page": 1,
+  "limit": 10,
+  "total": 1,
+  "has_next": false
 }
 ```
 
-We suggest to implement an in game button showing TOURNAMENT or LEADERBOARD where users can view the leaderboard, which you fetch through the API.
-If a user isn't registered for the tournament yet (you can check through an API call), alter the button to SIGN UP FOR THIS TOURNAMENT.
+#### Get Game
 
-Below is an example user who isn't registered for the tournament.
+Example (curl):
 
-<img width="482" height="561" alt="image" src="https://github.com/user-attachments/assets/b8fbfef0-a9f4-404a-8f26-abb8c7c0a6ae" />
-
-For this game the PLAY button comes available, once a user registered for the tournament.
-
-<img width="457" height="531" alt="image" src="https://github.com/user-attachments/assets/ca9634b7-dc45-44be-839c-051c0767d16a" />
-
-
----
-
-## Displaying Completed & Upcoming Tournaments
-
-The API response includes all tournaments with one of the following statuses:
-- `ONGOING`: Active tournaments that users can participate in
-- `UPCOMING`: Future tournaments (not yet started)
-- `COMPLETED`: Finished tournaments with final leaderboards
-
-### Carousel Integration
-Studios are encouraged to create an **in-game carousel UI** that:
-- Displays the current tournament
-- Allows users to swipe left to view past (COMPLETED) tournaments
-- Allows users to swipe right to preview upcoming (UPCOMING) tournaments
-
-Below is an example UI on how you can display the leaderboard with a carousel in game:
-
-<img width="1280" height="752" alt="image" src="https://github.com/user-attachments/assets/8d63d824-633c-4f85-b0a7-276f54fb9261" />
-
-Each tournament object includes metadata such as:
-- `start_date`, `end_date`
-- `banner` URL for visuals
-- `slug` for direct registration or leaderboard links (e.g. `https://hub.n3mus.com/tournaments/{slug}`)
-- `prize_pool` for the Prizepool size
-- `max_winners` for the number of winners
-- `tournament_type` Can be SUM_SCORE for 'accumulated points' or HIGH_SCORE for HIGH Score Only
-
-This improves user engagement by showcasing tournament history and teasing upcoming competitions.
-
----
-To determine a player's **total score** and their **ranking** in the leaderboard:
-
-> ⚠️ The API does not return `total_score` directly — studios must calculate this on the client side.
-
-### Formula
-```
-Total Score = score + bonus_score
+```bash
+curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
+  "https://api.n3mus.com/studio-api/games/game_123"
 ```
 
-The `participants` array is not sorted but we includue the rank — you need to include and calculate `total_score` in descending order.
-
-### Example
-```csharp
-public class Participant {
-    public string handle;
-    public int score;
-    public int bonus_score;
-    public int TotalScore => score + bonus_score;
-}
-
-List<Participant> sorted = participants.OrderByDescending(p => p.TotalScore).ToList();
-
-// Example display
-foreach (var p in sorted) {
-    Debug.Log($"{p.handle} - Total Score: {p.TotalScore}");
-}
-Total Score = score + bonus_score
+```http
+GET /studio-api/games/{gameId}
 ```
 
-Ensure you reflect this logic in your UI if you're rendering or re-sorting leaderboard data on your end.
+**Permissions:** `game:read` OR `game:read:all`
+
+Errors:
+
+- `404` if not found
+- `403` if game not owned (when only `game:read`)
 
 ---
 
-## Notes
-- If `participants` is empty, no players are registered yet.
-- Use the `slug` field to build URLs like `https://hub.n3mus.com/tournaments/{slug}`
-- Prizes, banners, and types (`SUM_SCORE` or `HIGH_SCORE`) are included per tournament for customization.
+### Tournaments
 
----
+#### List Tournaments
 
-Studios integrating N3MUS tournaments can enhance UX by allowing players to register for tournaments directly from the game client if they are not already registered.
+Example (curl):
 
-This guide explains how to create a **JOIN TOURNAMENT** button in both **Unity** and **Unreal Engine** using the tournament `slug` field.
-
----
-
-## 🧠 Concept
-
-If a user is **not found** in the participant list of an ongoing tournament, display a `JOIN TOURNAMENT` button that links to:
+```bash
+curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
+  "https://api.n3mus.com/studio-api/tournaments?page=1&limit=10"
 ```
-https://hub.n3mus.com/tournaments/{slug}
+
+```http
+GET /studio-api/tournaments?page=1&limit=10&game_id={optional}&status={optional}
 ```
-This page allows players to complete their tournament registration via wallet.
+
+**Permissions:** `tournament:read` OR `tournament:read:all`
+
+Filters:
+
+- `game_id` (optional) – filter tournaments for a specific game
+- `status` (optional) – implementation-specific status values
+
+#### Get Tournament
+
+Example (curl):
+
+```bash
+curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
+  "https://api.n3mus.com/studio-api/tournaments/tour_123"
+```
+
+```http
+GET /studio-api/tournaments/{tournamentId}
+```
+
+**Permissions:** `tournament:read` OR `tournament:read:all`
+
+Return Fields (representative):
+
+- `tournament_id`, `name`, `slug`, `status`, `banner`, `prize_pool`, `tournament_type`
+- `start_date`, `end_date`, `last_updated`
+- `participants[]`: ranked list (score ordering)
+  - `rank`, `user_id`, `handle`, `wallet_address`, `score`, `bonus_score`, `email`
 
 ---
 
-## 🎮 Unity Integration
+### User Lookup
 
-### Example Code
-```csharp
-public void ShowJoinTournamentButton(string tournamentSlug) {
-    string joinUrl = $"https://hub.n3mus.com/tournaments/{tournamentSlug}";
+```http
+GET /studio-api/users/lookup?email={email}
+GET /studio-api/users/lookup?wallet={wallet}    (requires enriched)
+```
 
-    Button joinButton = Instantiate(joinButtonPrefab, parentTransform);
-    Text btnText = joinButton.GetComponentInChildren<Text>();
-    if (btnText != null) btnText.text = "JOIN TOURNAMENT";
+**Permissions:** `user:lookup:basic` OR `user:lookup:enriched`
 
-    joinButton.onClick.AddListener(() => {
-#if UNITY_ANDROID || UNITY_IOS
-        Application.OpenURL(joinUrl); // or use UniWebView if embedded
-#else
-        Application.OpenURL(joinUrl);
-#endif
-    });
+Response (Basic permission):
+
+```json
+{ "exists": true }
+```
+
+Response (Enriched permission):
+Example (curl - basic email lookup):
+
+```bash
+curl -s -H "Authorization: Bearer $BASIC_KEY" \
+  "https://api.n3mus.com/studio-api/users/lookup?email=user%40example.com"
+```
+
+Example (curl - enriched wallet lookup):
+
+```bash
+curl -s -H "Authorization: Bearer $ENRICHED_KEY" \
+  "https://api.n3mus.com/studio-api/users/lookup?wallet=0xABCDEF..."
+```
+
+```json
+{
+  "exists": true,
+  "user_id": "usr_123",
+  "handle": "playerOne",
+  "last_active": "2025-09-10T08:30:22.000Z",
+  "n3mus_wallet": "0xABC...",
+  "external_wallets": [
+    {
+      "id": "w1",
+      "address": "0xDEF...",
+      "origin": "evm",
+      "provider": "metamask",
+      "verified": true
+    }
+  ]
 }
 ```
 
-### When to Show It
-```csharp
-if (userNotFoundInParticipants) {
-    ShowJoinTournamentButton(tournament.slug);
+Errors:
+
+- `400` if neither `email` nor `wallet` supplied
+- `403` if `wallet` used with only basic permission
+
+---
+
+### Tournament Participant Lookup
+
+```http
+GET /studio-api/tournaments/{tournamentId}/participants/lookup?user_id={id}
+GET /studio-api/tournaments/{tournamentId}/participants/lookup?email={email}
+GET /studio-api/tournaments/{tournamentId}/participants/lookup?wallet={wallet}
+```
+
+Supply exactly one of `user_id`, `email`, or `wallet`.
+
+**Permissions:** One of:
+
+- Basic: `tournament:participant:lookup` (scoped to studio-owned tournaments) OR `user:lookup:basic`
+- Enriched: `tournament:participant:lookup:all` OR `user:lookup:enriched`
+
+Response (Not found):
+
+```json
+{ "found": false }
+```
+
+Response (Basic found):
+
+```json
+{ "found": true }
+```
+
+Response (Enriched found):
+Example (curl - basic participant user id lookup):
+
+```bash
+curl -s -H "Authorization: Bearer $PARTICIPANT_BASIC_KEY" \
+  "https://api.n3mus.com/studio-api/tournaments/tour_123/participants/lookup?user_id=usr_123"
+```
+
+Example (curl - enriched participant wallet lookup):
+
+```bash
+curl -s -H "Authorization: Bearer $PARTICIPANT_ENRICHED_KEY" \
+  "https://api.n3mus.com/studio-api/tournaments/tour_123/participants/lookup?wallet=0xAAA..."
+```
+
+```json
+{
+  "found": true,
+  "user_id": "usr_123",
+  "handle": "playerOne",
+  "wallet_address": "0xAAA..."
+}
+```
+
+Errors:
+
+- `400` if zero or multiple identifiers provided
+
+---
+
+## Errors
+
+| Code | Meaning      | Common Causes                                                      |
+| ---- | ------------ | ------------------------------------------------------------------ |
+| 400  | Bad Request  | Missing/invalid query params, multiple identifiers supplied        |
+| 401  | Unauthorized | Invalid / missing API key header                                   |
+| 403  | Forbidden    | Key lacks required permission or studio scoping violation          |
+| 404  | Not Found    | Resource ID does not exist or outside scope (treated as not found) |
+| 429  | Rate Limited | (If enabled) Too many requests in window                           |
+
+### Example Error Payload
+
+```json
+{
+  "statusCode": 403,
+  "error": "Forbidden",
+  "message": "Insufficient permissions"
 }
 ```
 
 ---
 
-## 🕹️ Unreal Engine Integration
+## Security & Ops
 
-### Blueprint
-1. Create a `UMG Button Widget`
-2. Set text to `JOIN TOURNAMENT`
-3. On `OnClicked` event:
-   - Use `Open URL` node with input: 
-     ```
-     https://hub.n3mus.com/tournaments/{slug}
-     ```
-
-### C++ Example
-```cpp
-FString TournamentSlug = "kugle-test-ongoing";
-FString JoinURL = FString::Printf(TEXT("https://hub.n3mus.com/tournaments/%s"), *TournamentSlug);
-
-FPlatformProcess::LaunchURL(*JoinURL, nullptr, nullptr);
-```
-
-Call this when the user is not in the leaderboard:
-```cpp
-if (!bUserInLeaderboard) {
-    // Show JOIN TOURNAMENT button
-}
-```
+- API keys must be stored securely; never embed in publicly distributed clients.
+- Rotate keys by requesting a new key from N3mus, then decommission the old one.
+- Do not embed API keys in public front-end code or distribute them in client binaries. Use a secure backend proxy pattern if building user-facing features.
+- Consider a distinct key per environment (e.g. production, staging) for operational isolation.
 
 ---
 
-## 💡 Summary
-- Always use the `slug` field to build the join URL
-- Render this button **only** when user is not in `participants[]`
-- This link works across desktop and mobile
-
----
-
-For support or questions, contact us at **https://t.me/n3muschat**
+For questions or key management requests, contact N3mus.
