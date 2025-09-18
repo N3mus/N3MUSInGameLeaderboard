@@ -1,327 +1,376 @@
-# N3mus Studio API (Concise Guide)
+# 🎮 N3MUS Leaderboard API
 
-Use this API to read games, tournaments, and perform user / participant lookups with scoped permissions.
-
-Base Paths:
-
-| Environment | Base URL                        |
-| ----------- | ------------------------------- |
-| Production  | `https://hub-bck.n3mus.com`     |
-| Staging     | `https://dev-backend.n3mus.com` |
-
-All endpoints are under `/studio-api`.
+Studios can push match results (points) directly to the N3MUS leaderboard system.  
+This doc explains the endpoint, auth, request/response formats, and provides ready-to-run examples (cURL, JS, Python, **Unity (C#)**, **Unreal (C++)**).  
+A complete **OpenAPI/Swagger** spec is included at the bottom.
 
 ---
 
-## Auth
+## 🔐 Authentication
 
-Header:
+Every request **must** include a Bearer token:
 
-```http
-Authorization: Bearer <API_KEY>
+```
+Authorization: Bearer <your-api-token>
 ```
 
-Keys are issued & rotated by N3mus. Request separate keys per environment.
+You will receive your token from N3MUS.  
+If the token is missing or invalid, the API returns **401/403**.
 
 ---
 
-## Permissions (Additive)
+## 🌍 Endpoint
 
-| Domain             | Basic                           | Elevated                            | Effect                         |
-| ------------------ | ------------------------------- | ----------------------------------- | ------------------------------ |
-| Games              | `game:read`                     | `game:read:all`                     | Own vs all studios             |
-| Tournaments        | `tournament:read`               | `tournament:read:all`               | Own vs all studios             |
-| User Lookup        | `user:lookup:basic`             | `user:lookup:enriched`              | Existence vs enriched profile  |
-| Participant Lookup | `tournament:participant:lookup` | `tournament:participant:lookup:all` | Existence vs enriched + global |
+**POST** `/postMatchResults`  
+Your base URL will be provided (e.g. `https://[gamename].n3mus.com`). For example https://cosmicbomberk.n3mus.com.
 
-Notes:
-
-- Basic user lookup = email only; wallet requires enriched.
-- Enriched participant lookup returned if key has `tournament:participant:lookup:all` OR `user:lookup:enriched`.
-
-### Data Shaping Summary
-
-| Permission                          | Additional Fields                           |
-| ----------------------------------- | ------------------------------------------- |
-| `user:lookup:basic`                 | none (exists only)                          |
-| `user:lookup:enriched`              | `user_id`, `handle`, `last_active`, wallets |
-| `tournament:participant:lookup`     | none (found only)                           |
-| `tournament:participant:lookup:all` | `user_id`, `handle`, `wallet_address`       |
-
----
-
-## Pagination
-
-Query: `page` (default 1), `limit` (default 10). Response: `data`, `page`, `limit`, `total`, `has_next`.
-
----
-
-## Endpoints Summary
-
-| Endpoint                                          | Method | Purpose                       | Required Permission(s)                        |
-| ------------------------------------------------- | ------ | ----------------------------- | --------------------------------------------- |
-| `/games`                                          | GET    | List games                    | `game:read` or `game:read:all`                |
-| `/games/{gameId}`                                 | GET    | Get game                      | `game:read` or `game:read:all`                |
-| `/tournaments`                                    | GET    | List tournaments              | `tournament:read` or `tournament:read:all`    |
-| `/tournaments/{tournamentId}`                     | GET    | Get tournament                | `tournament:read` or `tournament:read:all`    |
-| `/users/lookup`                                   | GET    | User existence / profile      | `user:lookup:basic` or `user:lookup:enriched` |
-| `/tournaments/{tournamentId}/participants/lookup` | GET    | Participant existence/profile | participant or user lookup permissions        |
-
----
-
-## Endpoint Details
-
-### Games
-
-#### List Games
-
-```http
-GET /studio-api/games?page=1&limit=10
+**Full example:**  
+```
+POST https://cosmicbomberk.n3mus.com/postMatchResults
 ```
 
-**Permissions:** `game:read` OR `game:read:all`
+---
 
-- With `game:read`: Returns only games owned by the requesting studio.
-- With `game:read:all`: Returns games across all studios.
+## 📦 Request
 
-Sample Response:
-Example (curl):
+### Headers
+- `Authorization: Bearer <API_TOKEN>`
+- `Content-Type: application/json`
 
-```bash
-curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
-  "https://api.n3mus.com/studio-api/games?page=1&limit=10"
+### Body
+```json
+{
+  "address": "0x1234567890abcdef1234567890abcdef12345678",
+  "amount": 42,
+  "keys": ["matchNumber"],
+  "values": ["1"]
+}
 ```
+or
 
 ```json
 {
-  "data": [
+  "address": "0x1234567890abcdef1234567890abcdef12345678",
+  "amount": 42,
+  "keys": [],
+  "values": []
+}
+```
+
+### Field details
+| Field    | Type     | Required | Description                                |
+|----------|----------|----------|--------------------------------------------|
+| address  | string   | ✅       | Player wallet address (0x + 40 hex chars). |
+| amount   | integer  | ✅       | Points to **add** for this player.         |
+| keys     | string[] | ✅       | Metadata field names (must align with values). |
+| values   | string[] | ✅       | Metadata field values.                     |
+
+**Rules**
+- `amount` must be an integer (no decimals/strings).
+- `keys.length === values.length`.
+
+---
+
+## ✅ Responses
+
+### 200 OK
+```json
+{
+  "status": "enqueued",
+  "jobId": "12345"
+}
+```
+
+### Error examples
+
+**400 Bad Request**
+```json
+{ "error": "Invalid EVM address (expected 0x + 40 hex chars)" }
+```
+
+**401 Unauthorized**
+```json
+{ "error": "Missing or invalid Authorization header" }
+```
+
+**403 Forbidden**
+```json
+{ "error": "Invalid API token" }
+```
+
+---
+
+## 🚀 Quick Examples
+
+### cURL
+```bash
+curl -X POST "https://cosmicbomberk.n3mus.com/postMatchResults" \
+  -H "Authorization: Bearer <API_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "address": "0x1234567890abcdef1234567890abcdef12345678",
+    "amount": 42,
+    "keys": ["matchNumber"],
+    "values": ["1"]
+  }'
+```
+
+### JavaScript (fetch)
+```js
+await fetch("https://cosmicbomberk.n3mus.com/postMatchResults", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer " + process.env.N3MUS_API_TOKEN,
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    address: "0x1234567890abcdef1234567890abcdef12345678",
+    amount: 42,
+    keys: ["matchNumber"],
+    values: ["1"]
+  })
+}).then(r => r.json()).then(console.log);
+```
+
+### Python (requests)
+```python
+import os, requests
+
+resp = requests.post(
+    "https://cosmicbomberk.n3mus.com/postMatchResults",
+    headers={
+        "Authorization": f"Bearer {os.environ['N3MUS_API_TOKEN']}",
+        "Content-Type": "application/json"
+    },
+    json={
+        "address": "0x1234567890abcdef1234567890abcdef12345678",
+        "amount": 42,
+        "keys": ["matchNumber"],
+        "values": ["1"]
+    },
+    timeout=10
+)
+print(resp.status_code, resp.json())
+```
+
+---
+
+## 🎯 Game Engine Examples
+
+### Unity (C#)
+```csharp
+using System.Collections;
+using System.Text;
+using UnityEngine;
+using UnityEngine.Networking;
+
+public class N3musLeaderboard : MonoBehaviour
+{
+    [SerializeField] private string baseUrl = "https://cosmicbomberk.n3mus.com";
+    [SerializeField] private string apiToken = "Bearer n3m_sk_key";
+
+    public IEnumerator PostMatchResults(string address, int amount, string matchNumber)
     {
-      "id": "game_123",
-      "title": "Example Game",
-      "description": "...",
-      "status": "active",
-      "socials": { "site": null, "twitter": null, "discord": null },
-      "images": { "thumbnail": null, "banner": null },
-      "created_at": "2025-09-01T12:00:00.000Z"
+        var url = $"{baseUrl}/postMatchResults";
+
+        var payload = new
+        {
+            address = address,
+            amount = amount,
+            keys = new string[] { "matchNumber" },
+            values = new string[] { matchNumber }
+        };
+
+        string json = JsonUtility.ToJson(payload);
+        var request = new UnityWebRequest(url, "POST");
+        byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
+        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Content-Type", "application/json");
+        request.SetRequestHeader("Authorization", $"Bearer {apiToken}");
+
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError($"N3MUS post failed: {request.responseCode} {request.error} {request.downloadHandler.text}");
+        }
+        else
+        {
+            Debug.Log($"N3MUS post ok: {request.downloadHandler.text}");
+        }
     }
-  ],
-  "page": 1,
-  "limit": 10,
-  "total": 1,
-  "has_next": false
 }
 ```
 
-#### Get Game
+### Unreal Engine (C++)
+```cpp
+#include "HttpModule.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Json.h"
+#include "JsonUtilities.h"
 
-Example (curl):
-
-```bash
-curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
-  "https://api.n3mus.com/studio-api/games/game_123"
-```
-
-```http
-GET /studio-api/games/{gameId}
-```
-
-**Permissions:** `game:read` OR `game:read:all`
-
-Errors:
-
-- `404` if not found
-- `403` if game not owned (when only `game:read`)
-
----
-
-### Tournaments
-
-#### List Tournaments
-
-Example (curl):
-
-```bash
-curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
-  "https://api.n3mus.com/studio-api/tournaments?page=1&limit=10"
-```
-
-```http
-GET /studio-api/tournaments?page=1&limit=10&game_id={optional}&status={optional}
-```
-
-**Permissions:** `tournament:read` OR `tournament:read:all`
-
-Filters:
-
-- `game_id` (optional) – filter tournaments for a specific game
-- `status` (optional) – implementation-specific status values
-
-#### Get Tournament
-
-Example (curl):
-
-```bash
-curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
-  "https://api.n3mus.com/studio-api/tournaments/tour_123"
-```
-
-```http
-GET /studio-api/tournaments/{tournamentId}
-```
-
-**Permissions:** `tournament:read` OR `tournament:read:all`
-
-Return Fields (representative):
-
-- `tournament_id`, `name`, `slug`, `status`, `banner`, `prize_pool`, `tournament_type`
-- `start_date`, `end_date`, `last_updated`
-- `participants[]`: ranked list (score ordering)
-  - `rank`, `user_id`, `handle`, `wallet_address`, `score`, `bonus_score`, `email`
-
----
-
-### User Lookup
-
-```http
-GET /studio-api/users/lookup?email={email}
-GET /studio-api/users/lookup?wallet={wallet}    (requires enriched)
-```
-
-**Permissions:** `user:lookup:basic` OR `user:lookup:enriched`
-
-Response (Basic permission):
-
-```json
-{ "exists": true }
-```
-
-Response (Enriched permission):
-Example (curl - basic email lookup):
-
-```bash
-curl -s -H "Authorization: Bearer $BASIC_KEY" \
-  "https://api.n3mus.com/studio-api/users/lookup?email=user%40example.com"
-```
-
-Example (curl - enriched wallet lookup):
-
-```bash
-curl -s -H "Authorization: Bearer $ENRICHED_KEY" \
-  "https://api.n3mus.com/studio-api/users/lookup?wallet=0xABCDEF..."
-```
-
-```json
+void PostMatchResults(
+    const FString& BaseUrl,
+    const FString& ApiToken,
+    const FString& Address,
+    int32 Amount,
+    const FString& MatchNumber)
 {
-  "exists": true,
-  "user_id": "usr_123",
-  "handle": "playerOne",
-  "last_active": "2025-09-10T08:30:22.000Z",
-  "n3mus_wallet": "0xABC...",
-  "external_wallets": [
-    {
-      "id": "w1",
-      "address": "0xDEF...",
-      "origin": "evm",
-      "provider": "metamask",
-      "verified": true
-    }
-  ]
-}
-```
+    TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
+    Request->SetURL(BaseUrl + TEXT("/postMatchResults"));
+    Request->SetVerb(TEXT("POST"));
+    Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+    Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiToken));
 
-Errors:
+    TSharedPtr<FJsonObject> Root = MakeShareable(new FJsonObject);
+    Root->SetStringField(TEXT("address"), Address);
+    Root->SetNumberField(TEXT("amount"), Amount);
 
-- `400` if neither `email` nor `wallet` supplied
-- `403` if `wallet` used with only basic permission
+    TArray<TSharedPtr<FJsonValue>> Keys;
+    Keys.Add(MakeShareable(new FJsonValueString(TEXT("matchNumber"))));
+    Root->SetArrayField(TEXT("keys"), Keys);
 
----
+    TArray<TSharedPtr<FJsonValue>> Values;
+    Values.Add(MakeShareable(new FJsonValueString(MatchNumber)));
+    Root->SetArrayField(TEXT("values"), Values);
 
-### Tournament Participant Lookup
+    FString Body;
+    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Body);
+    FJsonSerializer::Serialize(Root.ToSharedRef(), Writer);
 
-```http
-GET /studio-api/tournaments/{tournamentId}/participants/lookup?user_id={id}
-GET /studio-api/tournaments/{tournamentId}/participants/lookup?email={email}
-GET /studio-api/tournaments/{tournamentId}/participants/lookup?wallet={wallet}
-```
+    Request->SetContentAsString(Body);
 
-Supply exactly one of `user_id`, `email`, or `wallet`.
+    Request->OnProcessRequestComplete().BindLambda(
+        [](FHttpRequestPtr Req, FHttpResponsePtr Resp, bool bWasSuccessful)
+        {
+            if (!bWasSuccessful || !Resp.IsValid())
+            {
+                UE_LOG(LogTemp, Error, TEXT("N3MUS post failed: no response"));
+                return;
+            }
+            if (Resp->GetResponseCode() >= 200 && Resp->GetResponseCode() < 300)
+            {
+                UE_LOG(LogTemp, Log, TEXT("N3MUS post ok: %s"), *Resp->GetContentAsString());
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("N3MUS post failed: %d %s"),
+                       Resp->GetResponseCode(), *Resp->GetContentAsString());
+            }
+        });
 
-**Permissions:** One of:
-
-- Basic: `tournament:participant:lookup` (scoped to studio-owned tournaments) OR `user:lookup:basic`
-- Enriched: `tournament:participant:lookup:all` OR `user:lookup:enriched`
-
-Response (Not found):
-
-```json
-{ "found": false }
-```
-
-Response (Basic found):
-
-```json
-{ "found": true }
-```
-
-Response (Enriched found):
-Example (curl - basic participant user id lookup):
-
-```bash
-curl -s -H "Authorization: Bearer $PARTICIPANT_BASIC_KEY" \
-  "https://api.n3mus.com/studio-api/tournaments/tour_123/participants/lookup?user_id=usr_123"
-```
-
-Example (curl - enriched participant wallet lookup):
-
-```bash
-curl -s -H "Authorization: Bearer $PARTICIPANT_ENRICHED_KEY" \
-  "https://api.n3mus.com/studio-api/tournaments/tour_123/participants/lookup?wallet=0xAAA..."
-```
-
-```json
-{
-  "found": true,
-  "user_id": "usr_123",
-  "handle": "playerOne",
-  "wallet_address": "0xAAA..."
-}
-```
-
-Errors:
-
-- `400` if zero or multiple identifiers provided
-
----
-
-## Errors
-
-| Code | Meaning      | Common Causes                                                      |
-| ---- | ------------ | ------------------------------------------------------------------ |
-| 400  | Bad Request  | Missing/invalid query params, multiple identifiers supplied        |
-| 401  | Unauthorized | Invalid / missing API key header                                   |
-| 403  | Forbidden    | Key lacks required permission or studio scoping violation          |
-| 404  | Not Found    | Resource ID does not exist or outside scope (treated as not found) |
-| 429  | Rate Limited | (If enabled) Too many requests in window                           |
-
-### Example Error Payload
-
-```json
-{
-  "statusCode": 403,
-  "error": "Forbidden",
-  "message": "Insufficient permissions"
+    Request->ProcessRequest();
 }
 ```
 
 ---
 
-## Security & Ops
-
-- API keys must be stored securely; never embed in publicly distributed clients.
-- Rotate keys by requesting a new key from N3mus, then decommission the old one.
-- Do not embed API keys in public front-end code or distribute them in client binaries. Use a secure backend proxy pattern if building user-facing features.
-- Consider a distinct key per environment (e.g. production, staging) for operational isolation.
+## 🧾 OpenAPI / Swagger (3.1)
+```yaml
+openapi: 3.1.0
+info:
+  title: N3MUS Leaderboard API
+  version: "1.0.0"
+  description: Studios can push match results (points) to N3MUS leaderboards.
+servers:
+  - url: https://cosmicbomberk.n3mus.com
+paths:
+  /postMatchResults:
+    post:
+      summary: Submit match result points
+      description: Adds `amount` points to the player's running total with optional metadata.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostMatchResultsRequest"
+            examples:
+              default:
+                value:
+                  address: "0x1234567890abcdef1234567890abcdef12345678"
+                  amount: 42
+                  keys: ["matchNumber"]
+                  values: ["1"]
+      responses:
+        "200":
+          description: Enqueued for processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnqueueResponse"
+              examples:
+                ok:
+                  value:
+                    status: "enqueued"
+                    jobId: "12345"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    PostMatchResultsRequest:
+      type: object
+      required: [address, amount, keys, values]
+      properties:
+        address:
+          type: string
+          pattern: "^0x[a-fA-F0-9]{40}$"
+          example: "0x1234567890abcdef1234567890abcdef12345678"
+        amount:
+          type: integer
+          example: 42
+        keys:
+          type: array
+          items: { type: string }
+          example: ["matchNumber"]
+        values:
+          type: array
+          items: { type: string }
+          example: ["1"]
+    EnqueueResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "enqueued"
+        jobId:
+          type: string
+          example: "12345"
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Invalid EVM address (expected 0x + 40 hex chars)"
+```
 
 ---
 
-For questions or key management requests, contact N3mus.
+## 📬 Support
+
+Need help or a token?  
+📧 **updates@n3mus.com**
