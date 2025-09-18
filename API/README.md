@@ -408,8 +408,6 @@ If you re‑rank locally based on `score + bonus_score`, ensure clarity if serve
 ### Carousel Leaderboard UI
 <img width="1280" height="752" alt="carousel leaderboard" src="https://github.com/user-attachments/assets/8d63d824-633c-4f85-b0a7-276f54fb9261" />
 
-These visuals illustrate recommended affordances for JOIN / PLAY transitions and historical vs upcoming tournament discovery.
-
 ---
 
 ## JOIN / Registration Button Logic
