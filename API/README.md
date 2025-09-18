@@ -1,376 +1,425 @@
-# 🎮 N3MUS Leaderboard API
+<!--
+  Unified documentation: combines earlier concise guide and tournament-focused integration doc.
+  Audience: Game studio engineers integrating N3MUS tournaments & game data.
+-->
 
-Studios can push match results (points) directly to the N3MUS leaderboard system.  
-This doc explains the endpoint, auth, request/response formats, and provides ready-to-run examples (cURL, JS, Python, **Unity (C#)**, **Unreal (C++)**).  
-A complete **OpenAPI/Swagger** spec is included at the bottom.
+# N3MUS Studio API Documentation
 
----
+The N3MUS Studio API lets approved game studios:
 
-## 🔐 Authentication
+- List & inspect their games
+- List, filter, and fetch tournaments (past, ongoing, upcoming)
+- Retrieve tournament leaderboards (participants with scores)
+- Determine if (and how) a user exists in the N3MUS ecosystem
+- Determine if a user is participating in a specific tournament
 
-Every request **must** include a Bearer token:
-
-```
-Authorization: Bearer <your-api-token>
-```
-
-You will receive your token from N3MUS.  
-If the token is missing or invalid, the API returns **401/403**.
+This merged guide expands prior docs and adds new lookup endpoints plus practical client integration patterns (Unity / Unreal) and a changelog.
 
 ---
 
-## 🌍 Endpoint
+## Base URLs
 
-**POST** `/postMatchResults`  
-Your base URL will be provided (e.g. `https://[gamename].n3mus.com`). For example https://cosmicbomberk.n3mus.com.
+| Environment | Base Host                     | Full Example (tournaments list)                                |
+| ----------- | ----------------------------- | --------------------------------------------------------------- |
+| Production  | `https://hub-bck.n3mus.com`   | `https://hub-bck.n3mus.com/studio-api/tournaments`             |
+| Staging     | `https://dev-backend.n3mus.com` | `https://dev-backend.n3mus.com/studio-api/tournaments`       |
 
-**Full example:**  
-```
-POST https://cosmicbomberk.n3mus.com/postMatchResults
-```
+All endpoints are prefixed with `/studio-api`.
 
 ---
 
-## 📦 Request
+## Authentication
 
-### Headers
-- `Authorization: Bearer <API_TOKEN>`
-- `Content-Type: application/json`
+Provide a bearer token issued to your studio.
 
-### Body
+```http
+Authorization: Bearer n3m_sk_<your_token>
+```
+
+Notes:
+
+- Tokens are environment‑scoped; use separate tokens per environment.
+- Rotate keys via N3MUS support; decommission old keys promptly.
+
+---
+
+## Permissions Model (Additive)
+
+Permissions gate data scope & enrichment. Elevated implies basic behavior plus broader scope / extra fields.
+
+| Domain             | Basic                           | Elevated                            | Scope / Enrichment Effect                     |
+| ------------------ | -------------------------------- | ----------------------------------- | ---------------------------------------------- |
+| Games              | `game:read`                      | `game:read:all`                     | Own studio games vs all studios (admin ops)    |
+| Tournaments        | `tournament:read`                | `tournament:read:all`               | Own studio tournaments vs global               |
+| User Lookup        | `user:lookup:basic`              | `user:lookup:enriched`              | Existence (email only) vs enriched profile     |
+| Participant Lookup | `tournament:participant:lookup`  | `tournament:participant:lookup:all` | Existence in owned tournaments vs enriched all |
+
+Data field additions when elevated:
+
+| Permission                          | Adds Fields                                      |
+| ----------------------------------- | ------------------------------------------------ |
+| `user:lookup:enriched`              | `user_id`, `handle`, `last_active`, wallets       |
+| `tournament:participant:lookup:all` | `user_id`, `handle`, `wallet_address`             |
+
+Interplay:
+
+- Wallet lookups require enriched user permission.
+- Enriched participant response granted if token has either `tournament:participant:lookup:all` OR `user:lookup:enriched`.
+
+---
+
+## Pagination Standard
+
+Query parameters: `page` (default 1), `limit` (default 10, max 100 unless specified). Responses include:
+
 ```json
 {
-  "address": "0x1234567890abcdef1234567890abcdef12345678",
-  "amount": 42,
-  "keys": ["matchNumber"],
-  "values": ["1"]
-}
-```
-or
-
-```json
-{
-  "address": "0x1234567890abcdef1234567890abcdef12345678",
-  "amount": 42,
-  "keys": [],
-  "values": []
+  "data": [],
+  "page": 1,
+  "limit": 10,
+  "total": 57,
+  "has_next": true
 }
 ```
 
-### Field details
-| Field    | Type     | Required | Description                                |
-|----------|----------|----------|--------------------------------------------|
-| address  | string   | ✅       | Player wallet address (0x + 40 hex chars). |
-| amount   | integer  | ✅       | Points to **add** for this player.         |
-| keys     | string[] | ✅       | Metadata field names (must align with values). |
-| values   | string[] | ✅       | Metadata field values.                     |
-
-**Rules**
-- `amount` must be an integer (no decimals/strings).
-- `keys.length === values.length`.
+Some legacy responses may include `totalPages`; new format uses `has_next`.
 
 ---
 
-## ✅ Responses
+## Endpoint Overview
 
-### 200 OK
-```json
-{
-  "status": "enqueued",
-  "jobId": "12345"
-}
-```
-
-### Error examples
-
-**400 Bad Request**
-```json
-{ "error": "Invalid EVM address (expected 0x + 40 hex chars)" }
-```
-
-**401 Unauthorized**
-```json
-{ "error": "Missing or invalid Authorization header" }
-```
-
-**403 Forbidden**
-```json
-{ "error": "Invalid API token" }
-```
+| Endpoint                                          | Method | Purpose                               | Required Permissions                                      |
+| ------------------------------------------------- | ------ | ------------------------------------- | ---------------------------------------------------------- |
+| `/games`                                          | GET    | Paginated list of games               | `game:read` or `game:read:all`                             |
+| `/games/{gameId}`                                 | GET    | Fetch single game                     | `game:read` or `game:read:all`                             |
+| `/tournaments`                                    | GET    | Paginated tournaments (filterable)    | `tournament:read` or `tournament:read:all`                 |
+| `/tournaments/{tournamentId}`                     | GET    | Tournament details + participants     | `tournament:read` or `tournament:read:all`                 |
+| `/users/lookup`                                   | GET    | User existence / profile lookup       | `user:lookup:basic` or `user:lookup:enriched`              |
+| `/tournaments/{tournamentId}/participants/lookup` | GET    | Participant existence / enrichment    | participant or user lookup permissions (see matrix)        |
 
 ---
 
-## 🚀 Quick Examples
+## Games
 
-### cURL
+### List Games
+
+```http
+GET /studio-api/games?page=1&limit=10&status={optional}
+```
+
+Behavior:
+
+- `game:read` => only your studio's games
+- `game:read:all` => global (internal / admin usage)
+
+Sample:
+
 ```bash
-curl -X POST "https://cosmicbomberk.n3mus.com/postMatchResults" \
-  -H "Authorization: Bearer <API_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "address": "0x1234567890abcdef1234567890abcdef12345678",
-    "amount": 42,
-    "keys": ["matchNumber"],
-    "values": ["1"]
-  }'
+curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
+  "$BASE_HOST/studio-api/games?page=1&limit=10"
 ```
 
-### JavaScript (fetch)
-```js
-await fetch("https://cosmicbomberk.n3mus.com/postMatchResults", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer " + process.env.N3MUS_API_TOKEN,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    address: "0x1234567890abcdef1234567890abcdef12345678",
-    amount: 42,
-    keys: ["matchNumber"],
-    values: ["1"]
-  })
-}).then(r => r.json()).then(console.log);
+Response (representative):
+
+```json
+{
+  "data": [
+    {
+      "id": "game_123",
+      "title": "Example Game",
+      "description": "...",
+      "status": "ACTIVE",
+      "socials": { "site": null, "twitter": null, "discord": null },
+      "images": { "thumbnail": null, "banner": null },
+      "created_at": "2025-09-01T12:00:00.000Z"
+    }
+  ],
+  "page": 1,
+  "limit": 10,
+  "total": 1,
+  "has_next": false
+}
 ```
 
-### Python (requests)
-```python
-import os, requests
+### Get Game
 
-resp = requests.post(
-    "https://cosmicbomberk.n3mus.com/postMatchResults",
-    headers={
-        "Authorization": f"Bearer {os.environ['N3MUS_API_TOKEN']}",
-        "Content-Type": "application/json"
-    },
-    json={
-        "address": "0x1234567890abcdef1234567890abcdef12345678",
-        "amount": 42,
-        "keys": ["matchNumber"],
-        "values": ["1"]
-    },
-    timeout=10
-)
-print(resp.status_code, resp.json())
+```http
+GET /studio-api/games/{gameId}
 ```
+
+Errors:
+
+- `404` not found
+- `403` forbidden (ownership) when only `game:read`
 
 ---
 
-## 🎯 Game Engine Examples
+## Tournaments
 
-### Unity (C#)
-```csharp
-using System.Collections;
-using System.Text;
-using UnityEngine;
-using UnityEngine.Networking;
+### List Tournaments
 
-public class N3musLeaderboard : MonoBehaviour
+```http
+GET /studio-api/tournaments?page=1&limit=10&game_id={optional}&status={UPCOMING|ONGOING|COMPLETED}
+```
+
+Filters:
+
+- `game_id` filter by a specific game
+- `status` one of `UPCOMING`, `ONGOING`, `COMPLETED`
+
+Sample:
+
+```bash
+curl -s -H "Authorization: Bearer $STUDIO_API_KEY" \
+  "$BASE_HOST/studio-api/tournaments?page=1&limit=10"
+```
+
+### Get Tournament
+
+```http
+GET /studio-api/tournaments/{tournamentId}
+```
+
+Representative fields:
+
+- Identity: `tournament_id`, `slug`, `name`
+- Meta: `status`, `banner`, `prize_pool`, `tournament_type`, `max_winners`
+- Timing: `start_date`, `end_date`, `last_updated`
+- Leaderboard `participants[]` objects: `rank`, `user_id`, `handle",`wallet_address`,`score`,`bonus_score`,`email`
+
+Scoring:
+
+```text
+total_score = score + bonus_score
+```
+
+`participants` are returned with a `rank`; if you locally re‑sort (e.g. to recompute `total_score`) preserve the original ranking for UI clarity unless you intend to recompute entirely.
+
+---
+
+## User Lookup
+
+Check if a user exists or fetch an enriched profile.
+
+```http
+GET /studio-api/users/lookup?email={email}
+GET /studio-api/users/lookup?wallet={wallet}   # wallet requires enriched permission
+```
+
+Permissions:
+
+- Basic => existence only, email queries only
+- Enriched => email OR wallet, returns profile & wallets
+
+Basic response:
+
+```json
+{ "exists": true }
+```
+
+Enriched response (example):
+
+```json
 {
-    [SerializeField] private string baseUrl = "https://cosmicbomberk.n3mus.com";
-    [SerializeField] private string apiToken = "Bearer n3m_sk_key";
+  "exists": true,
+  "user_id": "usr_123",
+  "handle": "playerOne",
+  "last_active": "2025-09-10T08:30:22.000Z",
+  "n3mus_wallet": "0xABC...",
+  "external_wallets": [
+    { "id": "w1", "address": "0xDEF...", "origin": "evm", "provider": "metamask", "verified": true }
+  ]
+}
+```
 
-    public IEnumerator PostMatchResults(string address, int amount, string matchNumber)
-    {
-        var url = $"{baseUrl}/postMatchResults";
+Errors:
 
-        var payload = new
-        {
-            address = address,
-            amount = amount,
-            keys = new string[] { "matchNumber" },
-            values = new string[] { matchNumber }
-        };
+- `400` if neither (or both) email & wallet omitted / conflict
+- `403` if wallet used without enriched permission
 
-        string json = JsonUtility.ToJson(payload);
-        var request = new UnityWebRequest(url, "POST");
-        byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
-        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-        request.downloadHandler = new DownloadHandlerBuffer();
-        request.SetRequestHeader("Content-Type", "application/json");
-        request.SetRequestHeader("Authorization", $"Bearer {apiToken}");
+---
 
-        yield return request.SendWebRequest();
+## Tournament Participant Lookup
 
-        if (request.result != UnityWebRequest.Result.Success)
-        {
-            Debug.LogError($"N3MUS post failed: {request.responseCode} {request.error} {request.downloadHandler.text}");
-        }
-        else
-        {
-            Debug.Log($"N3MUS post ok: {request.downloadHandler.text}");
-        }
+Determine if (and optionally who) a user is within a specific tournament leaderboard.
+
+```http
+GET /studio-api/tournaments/{tournamentId}/participants/lookup?user_id={id}
+GET /studio-api/tournaments/{tournamentId}/participants/lookup?email={email}
+GET /studio-api/tournaments/{tournamentId}/participants/lookup?wallet={wallet}
+```
+
+Rules:
+
+- Supply exactly one identifier.
+- Wallet requires enriched context (participant enriched OR user enriched).
+
+Permissions mapping:
+
+- Basic existence: `tournament:participant:lookup` (scoped to owned tournaments) OR `user:lookup:basic`
+- Enriched: `tournament:participant:lookup:all` OR `user:lookup:enriched`
+
+Responses:
+
+```json
+{ "found": false }
+```
+
+```json
+{ "found": true }
+```
+
+Enriched:
+
+```json
+{ "found": true, "user_id": "usr_123", "handle": "playerOne", "wallet_address": "0xAAA..." }
+```
+
+Errors:
+
+- `400` zero or multiple identifiers
+
+---
+
+## Integration Patterns
+
+### Checking If a Player Is Registered (Tournament Ongoing)
+
+1. Fetch tournaments: `GET /studio-api/tournaments?status=ONGOING` (or fetch all and filter locally).
+2. Select the active tournament (if multiple, choose by game or most recent start date).
+3. Search `participants[]` for a case‑insensitive wallet address (or user id/email if you perform earlier lookups).
+4. Render UI accordingly (e.g., PLAY vs JOIN / SIGN UP button).
+
+Pseudocode (C#):
+
+```csharp
+var ongoing = tournaments.FirstOrDefault(t => t.status == "ONGOING");
+if (ongoing != null) {
+    var player = ongoing.participants.FirstOrDefault(p => 
+        string.Equals(p.wallet_address, currentWallet, StringComparison.OrdinalIgnoreCase));
+    if (player != null) {
+        // Show PLAY / progress UI
+    } else {
+        // Show JOIN TOURNAMENT button
     }
 }
 ```
 
-### Unreal Engine (C++)
-```cpp
-#include "HttpModule.h"
-#include "Interfaces/IHttpRequest.h"
-#include "Interfaces/IHttpResponse.h"
-#include "Json.h"
-#include "JsonUtilities.h"
+### Building a Tournament Carousel
 
-void PostMatchResults(
-    const FString& BaseUrl,
-    const FString& ApiToken,
-    const FString& Address,
-    int32 Amount,
-    const FString& MatchNumber)
-{
-    TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
-    Request->SetURL(BaseUrl + TEXT("/postMatchResults"));
-    Request->SetVerb(TEXT("POST"));
-    Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
-    Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiToken));
+Recommended UX:
 
-    TSharedPtr<FJsonObject> Root = MakeShareable(new FJsonObject);
-    Root->SetStringField(TEXT("address"), Address);
-    Root->SetNumberField(TEXT("amount"), Amount);
+- Center: Ongoing tournament
+- Left: Completed (historical) tournaments
+- Right: Upcoming (preview)
 
-    TArray<TSharedPtr<FJsonValue>> Keys;
-    Keys.Add(MakeShareable(new FJsonValueString(TEXT("matchNumber"))));
-    Root->SetArrayField(TEXT("keys"), Keys);
+Use fields:
 
-    TArray<TSharedPtr<FJsonValue>> Values;
-    Values.Add(MakeShareable(new FJsonValueString(MatchNumber)));
-    Root->SetArrayField(TEXT("values"), Values);
+- Visual: `banner`
+- Timing: `start_date`, `end_date`
+- Links: `slug` → `https://hub.n3mus.com/tournaments/{slug}`
+- Incentives: `prize_pool`, `max_winners`, `tournament_type` (`SUM_SCORE` or `HIGH_SCORE`)
 
-    FString Body;
-    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Body);
-    FJsonSerializer::Serialize(Root.ToSharedRef(), Writer);
+### Calculating Total Score
 
-    Request->SetContentAsString(Body);
+The API does not emit a `total_score` field. Compute client‑side:
 
-    Request->OnProcessRequestComplete().BindLambda(
-        [](FHttpRequestPtr Req, FHttpResponsePtr Resp, bool bWasSuccessful)
-        {
-            if (!bWasSuccessful || !Resp.IsValid())
-            {
-                UE_LOG(LogTemp, Error, TEXT("N3MUS post failed: no response"));
-                return;
-            }
-            if (Resp->GetResponseCode() >= 200 && Resp->GetResponseCode() < 300)
-            {
-                UE_LOG(LogTemp, Log, TEXT("N3MUS post ok: %s"), *Resp->GetContentAsString());
-            }
-            else
-            {
-                UE_LOG(LogTemp, Error, TEXT("N3MUS post failed: %d %s"),
-                       Resp->GetResponseCode(), *Resp->GetContentAsString());
-            }
-        });
+```csharp
+int TotalScore(int score, int bonus) => score + bonus;
+```
 
-    Request->ProcessRequest();
+If you re‑rank locally based on `score + bonus_score`, ensure clarity if server `rank` diverges (e.g., show both or denote "Client View").
+
+---
+
+## JOIN / Registration Button Logic
+
+Show a `JOIN TOURNAMENT` button only when the user is not present in an ongoing tournament's participant list.
+
+Join URL pattern:
+
+```text
+https://hub.n3mus.com/tournaments/{slug}
+```
+
+### Unity Example
+
+```csharp
+public void ShowJoinTournamentButton(string slug) {
+    string joinUrl = $"https://hub.n3mus.com/tournaments/{slug}";
+    Button btn = Instantiate(joinButtonPrefab, parentTransform);
+    var txt = btn.GetComponentInChildren<UnityEngine.UI.Text>();
+    if (txt) txt.text = "JOIN TOURNAMENT";
+    btn.onClick.AddListener(() => Application.OpenURL(joinUrl));
 }
 ```
 
----
+#### Unreal (C++)
 
-## 🧾 OpenAPI / Swagger (3.1)
-```yaml
-openapi: 3.1.0
-info:
-  title: N3MUS Leaderboard API
-  version: "1.0.0"
-  description: Studios can push match results (points) to N3MUS leaderboards.
-servers:
-  - url: https://cosmicbomberk.n3mus.com
-paths:
-  /postMatchResults:
-    post:
-      summary: Submit match result points
-      description: Adds `amount` points to the player's running total with optional metadata.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PostMatchResultsRequest"
-            examples:
-              default:
-                value:
-                  address: "0x1234567890abcdef1234567890abcdef12345678"
-                  amount: 42
-                  keys: ["matchNumber"]
-                  values: ["1"]
-      responses:
-        "200":
-          description: Enqueued for processing
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EnqueueResponse"
-              examples:
-                ok:
-                  value:
-                    status: "enqueued"
-                    jobId: "12345"
-        "400":
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-  schemas:
-    PostMatchResultsRequest:
-      type: object
-      required: [address, amount, keys, values]
-      properties:
-        address:
-          type: string
-          pattern: "^0x[a-fA-F0-9]{40}$"
-          example: "0x1234567890abcdef1234567890abcdef12345678"
-        amount:
-          type: integer
-          example: 42
-        keys:
-          type: array
-          items: { type: string }
-          example: ["matchNumber"]
-        values:
-          type: array
-          items: { type: string }
-          example: ["1"]
-    EnqueueResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: "enqueued"
-        jobId:
-          type: string
-          example: "12345"
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          example: "Invalid EVM address (expected 0x + 40 hex chars)"
+```cpp
+FString JoinUrl = FString::Printf(TEXT("https://hub.n3mus.com/tournaments/%s"), *TournamentSlug);
+FPlatformProcess::LaunchURL(*JoinUrl, nullptr, nullptr);
 ```
 
 ---
 
-## 📬 Support
+## Error Handling
 
-Need help or a token?  
-📧 **updates@n3mus.com**
+| Code | Meaning      | Typical Causes                                        |
+| ---- | ------------ | ----------------------------------------------------- |
+| 400  | Bad Request  | Missing / invalid query, multiple identifiers         |
+| 401  | Unauthorized | Missing or invalid bearer token                       |
+| 403  | Forbidden    | Insufficient permission or studio ownership violation |
+| 404  | Not Found    | Resource absent or outside scope (intentionally vague)|
+| 429  | Rate Limited | Throttling (if enabled)                               |
+
+Example:
+
+```json
+{ "statusCode": 403, "error": "Forbidden", "message": "Insufficient permissions" }
+```
+
+Retry Guidance:
+
+- Avoid tight retry loops on 401/403 (requires operator / key action).
+- For 429 use exponential backoff (e.g., 1s, 2s, 4s ... max 30s).
+
+---
+
+## Security & Operational Guidance
+
+- Never embed tokens in a distributed game binary without a secure proxy layer.
+- Consider short-lived proxy-signed requests if exposing limited data to clients.
+- Separate tokens per environment & per internal service for blast‑radius reduction.
+- Log token usage (timestamp, endpoint) for anomaly detection; never log raw tokens.
+- Rotate keys periodically or upon suspicion of compromise.
+
+---
+
+## FAQ Snippets
+
+**Q: Can I query by wallet for user lookup with only basic permission?**  
+A: No, upgrade to `user:lookup:enriched`.
+
+**Q: Is leaderboard order guaranteed?**  
+A: Provided `rank` reflects authoritative ordering; array order may match rank but rely on the `rank` field explicitly.
+
+**Q: How do I correlate a participant to prior tournaments?**  
+A: Use `user_id` returned in enriched contexts; then paginate historical tournaments and match participants.
+
+---
+
+## Changelog
+
+| Date (YYYY-MM-DD) | Change | Notes |
+| ----------------- | ------ | ----- |
+| 2025-09-18 | Added `GET /users/lookup` | Basic & enriched user existence/profile lookup |
+| 2025-09-18 | Added `GET /tournaments/{id}/participants/lookup` | Participant existence/enrichment endpoint |
+
+---
+
+## Support
+
+For key management or questions: contact N3MUS (community: <https://t.me/n3muschat>).
+
+---
