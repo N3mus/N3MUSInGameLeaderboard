@@ -195,6 +195,72 @@ total_score = score + bonus_score
 
 `participants` are returned with a `rank`; if you locally re‑sort (e.g. to recompute `total_score`) preserve the original ranking for UI clarity unless you intend to recompute entirely.
 
+### Full Sample (Paginated Tournament List)
+
+Below is a representative multi-status response (UPCOMING / ONGOING / COMPLETED) as used in integration examples:
+
+```json
+{
+  "data": [
+    {
+      "tournament_id": "fgoji7ktymnq4ovsq9fv1kb7",
+      "status": "UPCOMING",
+      "slug": "kugle-upcoming",
+      "name": "kugle-upcoming",
+      "banner": "http://res.cloudinary.com/dtnbuzwfd/image/upload/v1750837587/tournaments/1750837586175-banner.png",
+      "prize_pool": "500",
+      "tournament_type": "SUM_SCORE",
+      "max_winners": 100,
+      "start_date": "2025-07-09T07:41:00.000Z",
+      "end_date": "2025-07-31T07:41:00.000Z",
+      "last_updated": "2025-06-25T07:46:41.399Z",
+      "participants": [
+        { "rank": 1, "user_id": "6655ecc78e64b86bae1d7f2b", "handle": "Nealawdawd", "wallet_address": "0xf0e144a19d3e62E64d3D6159d0B4e6862c18e270", "score": 25, "bonus_score": 0, "email": "neal@n3mus.com" },
+        { "rank": 2, "user_id": "656dcbebced29ecdc6beb1be", "handle": "lode_marketer#9169", "wallet_address": "0xf10bab2117700e7911e42c83b952b53b080d0383", "score": 10, "bonus_score": 2, "email": "nealtjeee@gmail.com" }
+      ]
+    },
+    {
+      "tournament_id": "zz8lbjldh2s46hju083pxc5o",
+      "status": "ONGOING",
+      "slug": "kugle-test-ongoing",
+      "name": "Kugle-test-ongoing",
+      "banner": "http://res.cloudinary.com/dtnbuzwfd/image/upload/v1750837551/tournaments/1750837551226-banner.png",
+      "prize_pool": "500",
+      "tournament_type": "SUM_SCORE",
+      "max_winners": 100,
+      "start_date": "2025-06-25T07:47:00.000Z",
+      "end_date": "2025-06-30T07:41:00.000Z",
+      "last_updated": "2025-06-26T09:13:20.047Z",
+      "participants": [
+        { "rank": 1, "user_id": "6655ecc78e64b86bae1d7f2b", "handle": "Nealawdawd", "wallet_address": "0xf0e144a19d3e62E64d3D6159d0B4e6862c18e270", "score": 25, "bonus_score": 0, "email": "neal@n3mus.com" },
+        { "rank": 2, "user_id": "656dcbebced29ecdc6beb1be", "handle": "lode_marketer#9169", "wallet_address": "0xf10bab2117700e7911e42c83b952b53b080d0383", "score": 10, "bonus_score": 2, "email": "nealtjeee@gmail.com" }
+      ]
+    },
+    {
+      "tournament_id": "jjusadkp43yv54doefe3qgfl",
+      "status": "COMPLETED",
+      "slug": "kugle-test",
+      "name": "Kugle-test",
+      "banner": "http://res.cloudinary.com/dtnbuzwfd/image/upload/v1750837318/tournaments/1750837317348-banner.png",
+      "prize_pool": "500",
+      "tournament_type": "SUM_SCORE",
+      "max_winners": 100,
+      "start_date": "2025-06-25T07:43:00.000Z",
+      "end_date": "2025-06-25T07:46:00.000Z",
+      "last_updated": "2025-06-25T07:46:20.542Z",
+      "participants": [
+        { "rank": 1, "user_id": "6655ecc78e64b86bae1d7f2b", "handle": "Nealawdawd", "wallet_address": "0xf0e144a19d3e62E64d3D6159d0B4e6862c18e270", "score": 25, "bonus_score": 0, "email": "neal@n3mus.com" },
+        { "rank": 2, "user_id": "656dcbebced29ecdc6beb1be", "handle": "lode_marketer#9169", "wallet_address": "0xf10bab2117700e7911e42c83b952b53b080d0383", "score": 10, "bonus_score": 2, "email": "nealtjeee@gmail.com" }
+      ]
+    }
+  ],
+  "total": 3,
+  "page": 1,
+  "limit": 10,
+  "totalPages": 1
+}
+```
+
 ---
 
 ## User Lookup
@@ -331,6 +397,20 @@ int TotalScore(int score, int bonus) => score + bonus;
 If you re‑rank locally based on `score + bonus_score`, ensure clarity if server `rank` diverges (e.g., show both or denote "Client View").
 
 ---
+## UI Examples
+
+### Unregistered Player State
+<img width="482" height="561" alt="unregistered user" src="https://github.com/user-attachments/assets/b8fbfef0-a9f4-404a-8f26-abb8c7c0a6ae" />
+
+### Registered Player (Play Enabled)
+<img width="457" height="531" alt="registered user play state" src="https://github.com/user-attachments/assets/ca9634b7-dc45-44be-839c-051c0767d16a" />
+
+### Carousel Leaderboard UI
+<img width="1280" height="752" alt="carousel leaderboard" src="https://github.com/user-attachments/assets/8d63d824-633c-4f85-b0a7-276f54fb9261" />
+
+These visuals illustrate recommended affordances for JOIN / PLAY transitions and historical vs upcoming tournament discovery.
+
+---
 
 ## JOIN / Registration Button Logic
 
@@ -389,23 +469,9 @@ Retry Guidance:
 ## Security & Operational Guidance
 
 - Never embed tokens in a distributed game binary without a secure proxy layer.
-- Consider short-lived proxy-signed requests if exposing limited data to clients.
+- Never expose the api secret in a client environment, proxy requests through a backend.
 - Separate tokens per environment & per internal service for blast‑radius reduction.
-- Log token usage (timestamp, endpoint) for anomaly detection; never log raw tokens.
 - Rotate keys periodically or upon suspicion of compromise.
-
----
-
-## FAQ Snippets
-
-**Q: Can I query by wallet for user lookup with only basic permission?**  
-A: No, upgrade to `user:lookup:enriched`.
-
-**Q: Is leaderboard order guaranteed?**  
-A: Provided `rank` reflects authoritative ordering; array order may match rank but rely on the `rank` field explicitly.
-
-**Q: How do I correlate a participant to prior tournaments?**  
-A: Use `user_id` returned in enriched contexts; then paginate historical tournaments and match participants.
 
 ---
 
