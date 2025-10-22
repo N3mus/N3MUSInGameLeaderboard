@@ -1,7 +1,7 @@
-# Studio Backend API & Unity Integration for Blockchain Score Submission
+# Studio Backend API & Unity/Unreal Integration for Blockchain Score Submission
 
 ## Overview
-This repository provides the necessary code and documentation for integrating blockchain-based score submissions in your game. It is designed for studios to host their own backend API and integrate with Unity to send player scores and match metadata directly to the blockchain.
+This repository provides the necessary code and documentation for integrating blockchain-based score submissions in your game. It is designed for studios to host their own backend API and integrate with Unity/Unreal to send player scores and match metadata directly to the blockchain.
 
 **Key Components:**
 - **Backend API (`server.js`)**: A Node.js Express server that signs and submits transactions to the blockchain using the provided smart contract.
