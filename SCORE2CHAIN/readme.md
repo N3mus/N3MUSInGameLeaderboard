@@ -32,13 +32,14 @@ This repository provides the necessary code and documentation for integrating bl
 Create a `.env` file in the root directory with the following variables:
 
 ```ini
-# Blockchain RPC URL (e.g., Moonbeam)
-ETH_NODE_URL=https://rpc.api.moonbeam.network
+# Blockchain RPC URL (e.g., Moonbeam / Avalanche)
+#ETH_NODE_URL=https://rpc.api.moonbeam.network      #Uncomment for Moonbeam
+#ETH_NODE_URL=https://api.avax.network/ext/bc/C/rpc #Uncomment for Avalanche
 
 # Studio's Private Key (use a test key for development)
 STUDIO_PRIVATE_KEY=0xYourPrivateKeyHere
 
-# Contract address for the Match Scores contract (provided separately)
+# Contract Address (we will deploy this for you)
 MATCH_SCORES_CONTRACT=0xYourMatchScoresContractAddressHere
 
 # Server Port (Optional: Change if running multiple services)
@@ -53,8 +54,8 @@ PORT=8000
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-repo/studio-backend.git
-cd studio-backend
+git clone https://github.com/N3mus/N3MUSInGameLeaderboard.git
+cd SCORE2CHAIN
 ```
 
 ### 2. Install Dependencies
