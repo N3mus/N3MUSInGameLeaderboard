@@ -4,6 +4,7 @@ This repository contains two separate integration paths for studios:
 
 1. **API** – Fetch leaderboard data and display it in your game or application.
 2. **POINTS** – Push player scores and match results into the leaderboard system.
+3. **SCORE2CHAIN** - Turn Key Software for writing scores on-chain.
 
 Both are independent modules but work best when used together.
 
@@ -13,8 +14,9 @@ Both are independent modules but work best when used together.
 
 ```
 .
-├── API/       # Read-only access to leaderboard data (for showing in-game leaderboards)
-└── POINTS/    # Write access for studios to push match results/points
+├── API/         # Read-only access to leaderboard data (for showing in-game leaderboards)
+└── POINTS/      # Write access for studios to push match results/points through hosted API
+└── SCORE2CHAIN/ # Write scores on-chain for leaderboards and anti-cheat
 ```
 
 ---
@@ -42,6 +44,19 @@ Typical use cases:
 - Push metadata (like match numbers or map names).
 
 📖 See [`POINTS/README.md`](./POINTS/README.md) for authentication details, request format, and examples (cURL, Python, Unity, Unreal, etc.).
+
+---
+
+## 🎯 SCORE2CHAIN (Write Scores to Chain)
+
+**Purpose:** Provide turn key software **to studios** for writing scores on chain.
+
+Typical use cases:
+- Required for getting on the N3MUS Leaderboard System
+- Onboard the N3MUS community
+- Get included in anti-cheat
+
+📖 See [`SCORE2CHAIN/README.md`](./SCORE2CHAIN/README.md) for more details.
 
 ---
 
